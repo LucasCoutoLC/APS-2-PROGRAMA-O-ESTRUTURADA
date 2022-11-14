@@ -1,0 +1,230 @@
+/* Implementar um programa que utilize uma lista simplesmente encadeada que faça:
+ * 1. Manipular dados de pessoas. Utilizando um registro que tenha os seguintes dados: nome, data de nascimento, cpf, rg, endereço, telefone e e-mail;
+ * 2. Inserir os dados na lista (utilize uma função que já carrega dados pré-cadastrados);
+ * 3. Permita consultas por: cpf ou telefone e exiba os resultados na tela;
+ * 4. Permita excluir os dados das pessoas através de consultas por cpf ou telefone.
+ */
+
+#include <stdio.h>                  // scanf, fscanf, sscanf, printf
+#include <stdlib.h>                 // malloc, free, fopen, fclose
+#include <string.h>                 // strcmp
+
+typedef struct {
+    int dia, mes, ano;
+} Data;
+
+typedef struct {
+    char nome[256];                 // Nome da pessoa
+    Data nasc;                      // Data de nascimento
+    char cpf[12];                   // CPF (somente digitos)
+    char rg[20];                    // RG (completo)
+    char endereco[256];             // Endereço
+    char tel[30];                   // Telefone
+    char email[256];                // E-mail
+} Pessoa;
+
+typedef struct no {
+    Pessoa dado;                    // Dado atual da lista
+    struct no *prox;                // Ponteiro para o proximo
+} Node;
+
+typedef struct {
+    Node *ini;                      // Ponteiro para o início da lista
+} Lista;
+
+int menu();                         // Insere menu, lê a opção escolhida e retorna
+Lista *cria_lista();                // Cria uma lista vazia e retorna
+void insere(Lista *l, Pessoa p);    // Insere uma pessoa p na lista l
+Pessoa linha2p(char *linha);        // Converte uma linha do arquivo para Pessoa
+Lista *le_arquivo();                // Cria lista a partir de arquivo
+void busca_cpf(Lista *l);           // Faz a busca por CPF e exibe os dados
+void busca_tel(Lista *l);           // Faz a busca por telefone e exibe os dados
+void imprime(Pessoa p);             // Imprime os dados de uma pessoa
+void imprime_lista(Lista *l);       // Imprime todas as pessoas da lista
+void del_cpf(Lista *l);             // Faz a busca por CPF e remove
+void del_tel(Lista *l);             // Faz a busca por telefone e remove
+
+int main() {
+    Lista *l = 0;                   // Lista
+    int op;                         // Opção escolhida
+    while((op = menu()) != 7) {     // Lê a opção e enquanto não for para sair
+        if(op == 1)                 // Se opção 1
+            l = le_arquivo();       // Lê dados do arquivo
+        else if(op == 2)            // Se opção 2
+            busca_cpf(l);           // Busca por cpf
+        else if(op == 3)            // Se opção 3
+            busca_tel(l);           // Busca por telefone
+        else if(op == 4)            // Se opção 4
+            del_cpf(l);             // Remove por cpf
+        else if(op == 5)            // Se opção 5
+            del_tel(l);             // Remove por telefone
+        else if(op == 6)            // Se opção 5
+            imprime_lista(l);       // Imprime a lista completa
+    }
+    return 0;
+}
+
+int menu() {
+    int op = 0;
+    printf("=== MENU ===\n");
+    printf("1) Ler dados de arquivo .csv\n");
+    printf("2) Buscar por CPF\n");
+    printf("3) Buscar por telefone\n");
+    printf("4) Remover por CPF\n");
+    printf("5) Remover por telefone\n");
+    printf("6) Imprimir lista\n");
+    printf("7) Sair\n");
+    while(op < 1 || op > 7) {
+        printf("Insira a opção desejada: ");
+        scanf(" %d", &op);
+    }
+    return op;
+}
+
+Lista *cria_lista() {
+    Lista *l;                       // Lista
+    l = (Lista*)malloc(sizeof(Lista));// Aloca a lista
+    l->ini = 0;                     // Lista vazia
+    return l;                       // Retorna a lista criada
+}
+
+void insere(Lista *l, Pessoa p) {
+    Node *curr = l->ini;            // Posição inicial
+    if(!curr) {                     // Se lista vazia
+        l->ini = (Node*)malloc(sizeof(Node));
+        l->ini->prox = 0;           // Próximo passa a ser o final
+        l->ini->dado = p;           // Insere o dado
+        return;
+    }
+    while(curr->prox)               // Enquanto não chegar ao último elemento
+        curr = curr->prox;          // Passa para o próximo
+    curr->prox = (Node*)malloc(sizeof(Node));
+    curr->prox->prox = 0;           // Próximo passa a ser o final
+    curr->prox->dado = p;           // Insere o dado
+}
+
+Pessoa linha2p(char *linha) {
+    Pessoa p;                       // Pessoa
+    sscanf(linha, "%[^,],%2d/%2d/%4d,%11s,%[^,],%[^,],%[^,],%s",
+            p.nome,
+            &p.nasc.dia, &p.nasc.mes, &p.nasc.ano,
+            p.cpf, p.rg,
+            p.endereco,
+            p.tel,
+            p.email);
+    return p;                       // Retorna a pessoa
+}
+
+Lista *le_arquivo() {
+    char arquivo[128];
+    char linha[2000];               // Linha do arquivo
+    Pessoa p;                       // Pessoa
+    Lista *l = cria_lista();        // Cria lista vazia
+    FILE *fp;                       // Arquivo
+    do {
+        printf("Insira o nome do arquivo: ");
+        scanf("\n%[^\n]", arquivo);   // Lê o nome do arquivo
+        fp = fopen(arquivo, "r");   // Abre o arquivo
+    } while(!fp);                   // Enquanto o arquivo não existir
+    fscanf(fp, "%[^\n]\n", linha);  // Lê a linha de cabeçalhos
+    while(fscanf(fp, "%[^\n]\n", linha) > 0) { // Enquanto houver linhas para ler
+        p = linha2p(linha);
+        insere(l, p);
+    }
+    fclose(fp);                     // Fecha o arquivo
+    printf("\nArquivo %s lido com sucesso!\n\n", arquivo);
+    return l;
+}
+
+void busca_cpf(Lista *l) {
+    char cpf[12];                   // CPF procurado
+    Node *curr = l->ini;            // Posição inicial
+    printf("Insira o CPF procurado: ");
+    scanf("%11s", cpf);             // Lê o CPF a ser procurado
+    while(curr) {                   // Enquanto não chegar ao fim
+        if(!strcmp(curr->dado.cpf, cpf)) // Se encontrado
+            return imprime(curr->dado);  // Imprime os dados da pessoa e finaliza
+        curr = curr->prox;          // Vai para o próximo elemento
+    }
+    printf("\nCPF %s não enconmtrado!\n\n", cpf);
+}
+
+void busca_tel(Lista *l) {
+    char tel[30];                   // Telefone
+    Node *curr = l->ini;            // Posição inicial
+    printf("Insira o Telefone procurado: ");
+    scanf("\n%[^\n]", tel);           // Lê o Telefone a ser procurado
+    while(curr) {                   // Enquanto não chegar ao fim
+        if(!strcmp(curr->dado.tel, tel))// Se encontrado
+            return imprime(curr->dado);// Imprime os dados da pessoa e finaliza
+        curr = curr->prox;          // Vai para o próximo elemento
+    }
+    printf("\nTelefone %s não enconmtrado!\n\n", tel);
+}
+
+void imprime(Pessoa p) {
+    int tam = 18;                   // Tamanho das strings das catacterísticas
+    printf("%*s: %s\n", tam, "Nome", p.nome);
+    printf("%*s: %02d/%02d/%04d\n", tam, "Data de Nascimento",
+            p.nasc.dia, p.nasc.mes, p.nasc.ano);
+    printf("%*s: %s\n", tam, "CPF", p.cpf);
+    printf("%*s: %s\n", tam, "RG", p.rg);
+    printf("%*s: %s\n", tam, "Endereco", p.endereco);
+    printf("%*s: %s\n", tam, "Telefone", p.tel);
+    printf("%*s: %s\n\n", tam, "E-mail", p.email);
+}
+
+void imprime_lista(Lista *l) {
+    Node *curr = l->ini;            // Posição inicial
+    printf("=== LISTA COMPLETA ===\n");
+    while(curr) {                   // Enquanto a lista não acabar
+        imprime(curr->dado);        // Imprime a pessoa atual
+        curr = curr->prox;          // Vai para o próximo elemento
+    }
+}
+
+void del_cpf(Lista *l) {
+    char cpf[12];                   // CPF procurado
+    Node *curr = l->ini;            // Posição inicial
+    Node *to_rm;                    // Nó a ser removido
+    printf("Insira o CPF a ser removido: ");
+    scanf("%11s", cpf);             // Lê o CPF a ser procurado
+    if(!strcmp(curr->dado.cpf, cpf)) { // Se primeiro elemento
+        l->ini = curr->prox;        // Atualiza o início da lista
+        free(curr);                 // Libera a memória do nó removido
+        return;                     // Finaliza
+    }
+    while(curr->prox) {             // Enquanto não chegar ao último elemento
+        if(!strcmp(curr->prox->dado.cpf, cpf)) { // Se encontrado
+            to_rm = curr->prox;     // Marca o que vai ser removido
+            curr->prox = to_rm->prox; // Atualiza o próximo do anterior
+            free(to_rm);            // Libera a memória do nó removido
+            return;                 // Finaliza
+        }
+        curr = curr->prox;          // Vai para o próximo elemento
+    }
+    printf("\nCPF %s não enconmtrado!\n\n", cpf);
+}
+
+void del_tel(Lista *l) {
+    char tel[30];                   // Telefone
+    Node *curr = l->ini;            // Posição inicial
+    Node *to_rm;                    // Nó a ser removido
+    printf("Insira o Telefone a ser removido: ");
+    scanf("\n%[^\n]", tel);           // Lê o Telefone a ser procurado
+    if(!strcmp(curr->dado.tel, tel)) {// Se primeiro elemento
+        l->ini = curr->prox;        // Atualiza o início da lista
+        free(curr);                 // Libera a memória do nó removido
+        return;                     // Finaliza
+    }
+    while(curr->prox) {             // Enquanto não chegar ao último elemento
+        if(!strcmp(curr->prox->dado.tel, tel)) { // Se encontrado
+            to_rm = curr->prox;     // Marca o que vai ser removido
+            curr->prox = to_rm->prox; // Atualiza o próximo do anterior
+            free(to_rm);            // Libera a memória do nó removido
+            return;                 // Finaliza
+        }
+        curr = curr->prox;          // Vai para o próximo elemento
+    }
+    printf("\nTelefone %s não encontrado!\n\n", tel);
+}
